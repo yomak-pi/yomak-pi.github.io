@@ -39,9 +39,11 @@ function inject(e){
   const end=[...e.querySelectorAll("button")].find(b=>/callEnd\(\)/.test(b.getAttribute("onclick")||""));if(!end)return;
   const v=document.createElement("button");v.setAttribute("data-vol","1");v.setAttribute("onclick","callVol()");v.style.cssText=end.style.cssText;v.style.background="#3b6b62";v.textContent="🔉 "+VOL[vi][0];end.parentNode.insertBefore(v,end);
 }
-const mo=new MutationObserver(()=>{const e=document.getElementById("callUI");inject(e);const a=document.getElementById("callAudio");if(a&&a.volume!==VOL[vi][1])a.volume=VOL[vi][1]});
+function styleLogs(){document.querySelectorAll(".mrow:not([data-cl]) .bub").forEach(b=>{const t=b.textContent||"";if(/مكالمة صوتية · مدتها|مكالمة فائتة|مكالمة مرفوضة/.test(t)&&t.length<80){b.closest(".mrow").setAttribute("data-cl","1")}})}
+const mo=new MutationObserver(()=>{styleLogs();const e=document.getElementById("callUI");inject(e);const a=document.getElementById("callAudio");if(a&&a.volume!==VOL[vi][1])a.volume=VOL[vi][1]});
 mo.observe(document.documentElement,{childList:true,subtree:true});
 const css=document.createElement("style");css.textContent=`
+.mrow[data-cl]{justify-content:center!important}.mrow[data-cl] .bub{background:#e3ece8!important;color:#335!important;border-radius:20px!important;font-size:13px!important;margin:4px auto!important;text-align:center!important;max-width:80%!important}.mrow[data-cl] .bub small,.mrow[data-cl] .mcdots{display:none!important}
 #callUI[data-min]{inset:auto!important;top:max(8px,env(safe-area-inset-top))!important;left:8px!important;right:8px!important;height:auto!important;flex-direction:row!important;flex-wrap:wrap;justify-content:space-between!important;align-items:center!important;gap:6px!important;padding:6px 12px!important;border-radius:26px;background:#123c3af2!important;box-shadow:0 6px 22px rgba(0,0,0,.35);z-index:99998!important}
 #callUI[data-min]>div:first-child,#callUI[data-min] small,#callUI[data-min] #callBadge:empty{display:none!important}
 #callUI[data-min] h2{font-size:14px!important;margin:0!important}

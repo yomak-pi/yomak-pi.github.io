@@ -22,9 +22,46 @@ function cleanup(notify){
     if(call.on&&call.t0)logCall("📞 مكالمة صوتية · مدتها "+mmss(Math.max(0,Math.round((Date.now()-call.t0)/1000))));
     else logCall(call.res==="declined"?"📵 مكالمة مرفوضة":"📵 مكالمة فائتة")}
   if(call&&notify){try{send("hangup")}catch(e){}}
-  if(call){clearTimeout(call.t);clearTimeout(call.dc);clearInterval(call.wd);clearInterval(call.tick);try{call.pc&&call.pc.close()}catch(e){}try{call.stream&&call.stream.getTracks().forEach(t=>t.stop())}catch(e){}}
-  call=null;uiClose();
+  if(call){clearTimeout(call.t);clearTimeout(call.dc);clearInterval(call.wd);clearInterval(call.tick);try{call.pc&&call.pc.close()}catch(e){}try{call.stream&&call.stream.getTracks().forEach(t=>t.stop())}catch(e){}try{call.cam&&call.cam.getTracks().forEach(t=>t.stop())}catch(e){}}
+  vidClean();call=null;uiClose();
 }
+/* ---- video (added mid-call; either side can switch the camera on, renegotiated through the same signalling) ---- */
+function vidEl(id,css){let v=document.getElementById(id);if(!v){v=document.createElement("video");v.id=id;v.autoplay=true;v.muted=true;v.setAttribute("playsinline","");v.style.cssText=css;document.body.appendChild(v)}return v}
+function vidClean(){["callVidR","callVidL"].forEach(i=>{const v=document.getElementById(i);if(v){try{v.srcObject=null}catch(e){}v.remove()}});const u=document.getElementById("callUI");if(u)u.removeAttribute("data-vid");document.documentElement.classList.remove("callvid")}
+function showRemoteVid(st,tr){
+  const v=vidEl("callVidR","position:fixed;inset:0;width:100%;height:100%;object-fit:cover;background:#000;z-index:99996");
+  v.srcObject=st;v.play&&v.play().catch(()=>{});document.documentElement.classList.add("callvid");
+  const hide=()=>{if(!tr.muted&&tr.readyState==="live")return;v.remove();if(!document.getElementById("callVidL"))document.documentElement.classList.remove("callvid")};
+  tr.onmute=hide;tr.onended=hide;tr.onunmute=()=>{if(!document.getElementById("callVidR")){showRemoteVid(st,tr)}};
+}
+async function renegotiate(){
+  if(!call||!call.pc)return;
+  try{const off=await call.pc.createOffer();await call.pc.setLocalDescription(off);await send("offer",{type:off.type,sdp:tune(off.sdp),reneg:true})}catch(e){dbg("reneg fail")}
+}
+async function camStart(face){
+  const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:face||"user",width:{ideal:640},height:{ideal:480},frameRate:{ideal:24}},audio:false});
+  return st;
+}
+window.callCam=async function(){
+  if(!call||!call.pc)return;
+  if(call.cam){const tr=call.cam.getVideoTracks()[0];
+    try{call.vs&&call.pc.removeTrack(call.vs)}catch(e){}call.vs=null;call.cam.getTracks().forEach(t=>t.stop());call.cam=null;
+    const l=document.getElementById("callVidL");if(l){l.srcObject=null;l.remove()}if(!document.getElementById("callVidR"))document.documentElement.classList.remove("callvid");
+    await renegotiate();return}
+  try{call.face=call.face||"user";const st=await camStart(call.face);call.cam=st;
+    call.vs=call.pc.addTrack(st.getVideoTracks()[0],st);
+    const l=vidEl("callVidL","position:fixed;top:max(70px,env(safe-area-inset-top));right:10px;width:96px;height:128px;object-fit:cover;border-radius:12px;border:2px solid #fff;background:#222;z-index:99998;transform:scaleX(-1)");
+    l.srcObject=st;l.play&&l.play().catch(()=>{});document.documentElement.classList.add("callvid");
+    await renegotiate()}catch(e){try{msg("مقدرتش أفتح الكاميرا (اسمح بالكاميرا)")}catch(x){}}
+};
+window.callFlip=async function(){
+  if(!call||!call.cam||!call.vs)return;
+  try{call.face=call.face==="user"?"environment":"user";
+    call.cam.getTracks().forEach(t=>t.stop());
+    const st=await camStart(call.face),nt=st.getVideoTracks()[0];
+    await call.vs.replaceTrack(nt);call.cam=st;
+    const l=document.getElementById("callVidL");if(l){l.srcObject=st;l.style.transform=call.face==="user"?"scaleX(-1)":"none"}}catch(e){try{msg("تعذّر قلب الكاميرا")}catch(x){}}
+};
 let skew=0;const nowS=()=>Date.now()+skew;
 async function syncClock(){try{const t0=Date.now(),r=await sb("/rest/v1/rpc/server_now",{method:"POST",body:{}}),t1=Date.now();const v=Date.parse(Array.isArray(r)?r[0]:r);if(v)skew=v-(t0+t1)/2}catch(e){}}
 window.__cdbg=[];const dbg=x=>{try{window.__cdbg.push(new Date().toISOString().slice(11,19)+" "+x);if(window.__cdbg.length>40)window.__cdbg.shift()}catch(e){}};
@@ -42,7 +79,7 @@ async function mkPc(){await loadTurn();
   const pc=new RTCPeerConnection({iceServers:ICE,iceCandidatePoolSize:4,bundlePolicy:"max-bundle",rtcpMuxPolicy:"require"});
   call.pc=pc;call.pendingIce=[];
   pc.onicecandidate=e=>{if(e.candidate&&call)send("ice",e.candidate.toJSON()).catch(()=>{})};
-  pc.ontrack=e=>{let a=document.getElementById("callAudio");if(!a){a=document.createElement("audio");a.id="callAudio";a.autoplay=true;a.setAttribute("playsinline","");document.body.append(a)}a.srcObject=e.streams[0];a.play&&a.play().catch(()=>{})};
+  pc.ontrack=e=>{if(e.track&&e.track.kind==="video"){showRemoteVid(e.streams[0]||new MediaStream([e.track]),e.track);return}let a=document.getElementById("callAudio");if(!a){a=document.createElement("audio");a.id="callAudio";a.autoplay=true;a.setAttribute("playsinline","");document.body.append(a)}a.srcObject=e.streams[0];a.play&&a.play().catch(()=>{})};
   pc.onconnectionstatechange=()=>{
     if(!call)return;
     const st=pc.connectionState;
@@ -184,7 +221,7 @@ async function poll(){
   }catch(e){}
 }
 let tickN=0;function startPoll(){}
-setInterval(()=>{tickN++;if(call||!live||tickN%3===0)poll()},1500);setInterval(syncClock,300000);
+setInterval(()=>{tickN++;if(call||!live||tickN%3===0)poll()},1500);setInterval(syncClock,300000);window.addEventListener("online",()=>{if(call&&call.pc&&call.dir==="out"&&call.pc.connectionState!=="connected"){call.retry=0;reconnect("online")}});document.addEventListener("visibilitychange",()=>{if(!document.hidden&&call&&call.pc&&call.dir==="out"&&call.on&&["disconnected","failed"].includes(call.pc.connectionState)){reconnect("visible")}});
 function connect(){
   const me=cs();
   if(!me||!window.supabase||!window.supabase.createClient)return;

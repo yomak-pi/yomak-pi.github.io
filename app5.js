@@ -46,10 +46,10 @@ async function mkSave(){
   const title=v("mTitle")||(t==="transport"?(v("mFrom")+" إلى "+v("mTo")).trim():"");
   const phone=v("mPhone").replace(/[^\d+]/g,"");
   if(title.length<2)return msg("اكتب عنوان للإعلان");
-  if(!/^[0-9+]{7,16}$/.test(phone))return msg("اكتب رقم موبايل صحيح");
+  if(!window.YOMAK_PI&&!/^[0-9+]{7,16}$/.test(phone))return msg("اكتب رقم موبايل صحيح");
   try{
     await ensureProfile();
-    await sb("/rest/v1/market_listings",{method:"POST",body:{tab:t,title:title.slice(0,80),details:v("mDet").slice(0,1000),from_place:v("mFrom").slice(0,60)||null,to_place:v("mTo").slice(0,60)||null,subtype:v("mSub")||null,price:v("mPrice").slice(0,40)||null,phone,whatsapp:!!(el("mWa")&&el("mWa").checked),country:d.country==="SA"?"SA":"EG",city:(d.city||"").slice(0,40)}});
+    await sb("/rest/v1/market_listings",{method:"POST",body:{tab:t,title:title.slice(0,80),details:v("mDet").slice(0,1000),from_place:v("mFrom").slice(0,60)||null,to_place:v("mTo").slice(0,60)||null,subtype:v("mSub")||null,price:v("mPrice").slice(0,40)||null,phone:phone||null,whatsapp:!!(el("mWa")&&el("mWa").checked),country:d.country==="SA"?"SA":"EG",city:(d.city||"").slice(0,40)}});
     closeModal();mk.list=null;msg("تم نشر الإعلان");renderPage();
   }catch(e){const x=el("mErr");if(x)x.textContent="⚠️ "+sbErr(e);msg(sbErr(e).slice(0,80))}
 }

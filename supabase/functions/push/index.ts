@@ -35,6 +35,12 @@ Deno.serve(async (req) => {
     let n = 0; for (const s of subs || []) if (await send(s, { title: "💬 " + String(b.title || "رسالة جديدة").slice(0, 60), body: String(b.body || "").slice(0, 120), tag: "dm", url: "./index.html" })) n++;
     return ok({ sent: n });
   }
+  if (b.mode === "notify") {
+    if (!/^[0-9a-f-]{36}$/i.test(String(b.user_id))) return ok({ error: "bad" }, 400);
+    const subs = await (await fetch(`${url}/rest/v1/push_subscriptions?select=*&user_id=eq.${b.user_id}`, { headers: H })).json();
+    let n = 0; for (const s of subs || []) if (await send(s, { title: String(b.title || "يومك").slice(0, 60), body: String(b.body || "").slice(0, 120), tag: String(b.tag || "n").slice(0, 40), url: "./index.html" })) n++;
+    return ok({ sent: n });
+  }
   if (b.mode === "morning") {
     const subs = await (await fetch(`${url}/rest/v1/push_subscriptions?select=*&morning_on=eq.true`, { headers: H })).json();
     const now = new Date(), utcMin = now.getUTCHours() * 60 + now.getUTCMinutes();

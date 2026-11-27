@@ -7,7 +7,7 @@ let evt=null;
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();evt=e});
 window.addEventListener("appinstalled",()=>{evt=null;try{localStorage.setItem(LS,JSON.stringify({done:1}))}catch(x){}try{msg("تم تثبيت يومك ✅")}catch(x){}});
 const st=()=>{try{return JSON.parse(localStorage.getItem(LS))||{}}catch(e){return{}}};
-const link=()=>"https://omarkhaleel432.github.io/-Yomak/";
+const link=()=>{let r="";try{const s=cs();r=s&&s.uid?("?ref="+String(s.uid).slice(0,8)):""}catch(e){}return "https://yomak-app.github.io/"+r};
 const inviteText=()=>"جرّب تطبيق يومك 👋 مهامك وصلاتك ومصروفاتك وسوق مستعمل وجروبات للمصريين والعرب، كله في مكان واحد وببلاش. افتحه وثبّته على موبايلك:\n"+link();
 function stepsHtml(){
   const a='<ol style="line-height:2;padding-inline-start:20px"><li>افتح الرابط في <b>Chrome</b></li><li>اضغط على النقط الثلاث <b>⋮</b> فوق</li><li>اختر <b>تثبيت التطبيق</b> أو <b>إضافة إلى الشاشة الرئيسية</b></li><li>اضغط <b>تثبيت</b>، والأيقونة هتظهر عندك</li></ol>';

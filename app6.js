@@ -77,7 +77,7 @@ async function loadTurn(){
 }
 async function mkPc(){await loadTurn();
   const pc=new RTCPeerConnection({iceServers:ICE,iceCandidatePoolSize:4,bundlePolicy:"max-bundle",rtcpMuxPolicy:"require"});
-  call.pc=pc;call.pendingIce=[];
+  call.pc=pc;window.__pc=pc;call.pendingIce=[];
   pc.onicecandidate=e=>{if(e.candidate&&call)send("ice",e.candidate.toJSON()).catch(()=>{})};
   pc.ontrack=e=>{if(e.track&&e.track.kind==="video"){showRemoteVid(e.streams[0]||new MediaStream([e.track]),e.track);return}let a=document.getElementById("callAudio");if(!a){a=document.createElement("audio");a.id="callAudio";a.autoplay=true;a.setAttribute("playsinline","");document.body.append(a)}a.srcObject=e.streams[0];a.play&&a.play().catch(()=>{})};
   pc.onconnectionstatechange=()=>{

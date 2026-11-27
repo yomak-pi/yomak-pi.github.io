@@ -2,7 +2,7 @@
 (function(){
   var PI_CLIENT_ID="rHU8OBzAds4prB0d7YNJL-HWUIHzTKO1fenUQC9kBK8"; // public OAuth client id from the Pi Developer Portal (Pi Sign-in section). Empty = only Pi Browser route.
   var PI_SANDBOX=/[?&]sandbox=1\b/.test(location.search); // true only when opened with ?sandbox=1 (Pi developer sandbox run)
-  var inPi=function(){return /PiBrowser/i.test(navigator.userAgent||"")};
+  var inPi=function(){return /PiBrowser/i.test(navigator.userAgent||"")||PI_SANDBOX};
   function loadSdk(){return new Promise(function(ok,no){
     if(window.Pi)return ok();
     var s=document.createElement("script");s.src="https://sdk.minepi.com/pi-sdk.js";s.onload=ok;s.onerror=function(){no(new Error("sdk"))};document.head.appendChild(s)})}

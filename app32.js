@@ -3,15 +3,16 @@ cl.pi={};
 const piRel={single:"أعزب/عزباء",engaged:"مخطوب/ة",married:"متزوج/ة"};
 async function piLoad(uid){
   try{const r=await sb("/rest/v1/profile_info?select=*&user_id=eq."+uid);cl.pi[uid]=(r||[])[0]||{};
-    const fr=await sb("/rest/v1/friendships?select=requester,addressee&status=eq.accepted&or=(requester.eq."+uid+",addressee.eq."+uid+")&limit=500").catch(()=>[]);
-    cl.pi[uid]._fr=(fr||[]).map(r=>r.requester===uid?r.addressee:r.requester);
+    const n=await sb("/rest/v1/rpc/friend_count",{method:"POST",body:{u:uid}}).catch(()=>0);
+    cl.pi[uid]._fr=new Array(Number(n)||0);
+    cl.pi[uid]._mut=(cs()&&uid!==cs().uid)?((await sb("/rest/v1/rpc/mutual_friends",{method:"POST",body:{other:uid}}).catch(()=>[]))||[]).length:0;
   }catch(e){cl.pi[uid]={_fr:[]}}
   renderPage();
 }
 function piCard(uid){
   const me=(cs()||{}).uid,p=cl.pi[uid];if(!p){piLoad(uid);return""}
   const mine=uid===me,rows=[["💼",p.work],["🎓",p.study],["🏠",p.hometown],["❤️",piRel[p.relationship]],["🌐",p.website]].filter(r=>r[1]);
-  const mutual=mine?0:(p._fr||[]).filter(x=>(cl.fr.rows||[]).some(r=>r.status==="accepted"&&(r.requester===x||r.addressee===x)&&x!==me)).length;
+  const mutual=mine?0:(p._mut||0);
   return '<div class="card"><b>معلومات</b>'+(rows.length?rows.map(r=>'<div>'+r[0]+' '+esc(r[1])+'</div>').join(""):'<p class="muted">لا توجد معلومات</p>')+'<div class="muted" style="margin-top:6px">👥 '+an((p._fr||[]).length)+' صديق'+(mutual?' · '+an(mutual)+' مشترك':"")+'</div>'+(mine?'<button class="chip" onclick="piEdit()">✏️ تعديل المعلومات</button>':"")+'</div>';
 }
 function piEdit(){

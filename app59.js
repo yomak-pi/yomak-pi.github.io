@@ -5,16 +5,11 @@ const me=()=>{try{return frMe()}catch(e){return (cs()||{}).uid}};
 async function load(){
   if(sg.busy)return;sg.busy=1;
   try{
-    const u=me(),rows=(cl.fr&&cl.fr.rows)||[],mine=new Set([u]);
+    const u=me(),rows=(cl.fr&&cl.fr.rows)||[],mine=new Set([u]);rows.forEach(r=>{mine.add(r.requester);mine.add(r.addressee)});
     rows.forEach(r=>{mine.add(r.requester);mine.add(r.addressee)});
-    const fr=rows.filter(r=>r.status==="accepted").map(r=>r.requester===u?r.addressee:r.requester).filter(i=>UUID_RE.test(i));
     const cnt={};sg.mut={};
-    if(fr.length){
-      const l="("+fr.slice(0,60).join(",")+")";
-      const a=await sb("/rest/v1/friendships?select=requester,addressee&status=eq.accepted&or=(requester.in."+l+",addressee.in."+l+")&limit=2000")||[];
-      const fs=new Set(fr);
-      a.forEach(r=>{const f=fs.has(r.requester)?r.requester:r.addressee,o=f===r.requester?r.addressee:r.requester;
-        if(mine.has(o)||fs.has(o))return;cnt[o]=(cnt[o]||0)+1;(sg.mut[o]=sg.mut[o]||[]).push(f)})}
+    const r=await sb("/rest/v1/rpc/friend_suggestions",{method:"POST",body:{}})||[];
+    r.forEach(x=>{if(UUID_RE.test(x.id)){cnt[x.id]=(x.mutual||[]).length;sg.mut[x.id]=x.mutual||[]}});
     let ids=Object.keys(cnt).sort((x,y)=>cnt[y]-cnt[x]).slice(0,12);
     if(ids.length<8){
       const mp=(cl.pp&&cl.pp[u])||{};const city=mp.city;

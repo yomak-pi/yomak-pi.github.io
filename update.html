@@ -1,0 +1,6 @@
+<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>تحديث يومك</title>
+<body style="font-family:sans-serif;text-align:center;padding:40px 20px;background:#f6faf9;color:#123c3a"><h2>جاري تحديث يومك…</h2><p id="s">لحظة واحدة</p>
+<script>(async()=>{const s=document.getElementById("s");
+try{if(navigator.serviceWorker){const r=await navigator.serviceWorker.getRegistrations();await Promise.all(r.map(x=>x.unregister()))}}catch(e){}
+try{if(window.caches){const k=await caches.keys();await Promise.all(k.map(x=>caches.delete(x)))}}catch(e){}
+s.textContent="تمام ✅ بيفتح التطبيق…";setTimeout(()=>location.replace("./index.html?u="+Date.now()),700)})()</script></body></html>

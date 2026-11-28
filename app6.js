@@ -93,15 +93,15 @@ async function mkPc(){await loadTurn();
   return pc;
 }
 // ---- tones (WebAudio, no files): ringtone for the callee, ringback for the caller ----
-let AC=null,toneT=null,wl=null;
+let AC=null,toneT=null,wl=null,toneOn=0,toneNodes=[];
 function tone(kind){
   stopTone();
   try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();AC.resume&&AC.resume()}catch(e){return}
-  const beep=(f,dur)=>{try{const o=AC.createOscillator(),g=AC.createGain();o.frequency.value=f;o.type="sine";g.gain.value=.0001;o.connect(g);g.connect(AC.destination);const t=AC.currentTime;g.gain.exponentialRampToValueAtTime(.25,t+.03);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.start(t);o.stop(t+dur+.05)}catch(e){}};
-  const ring=()=>{if(kind==="in"){beep(880,.35);setTimeout(()=>beep(660,.35),400);try{navigator.vibrate&&navigator.vibrate([300,150,300])}catch(e){}}else{beep(440,.9)}};
-  ring();toneT=setInterval(ring,kind==="in"?2200:3000);
+  const beep=(f,dur)=>{if(!toneOn)return;try{const o=AC.createOscillator(),g=AC.createGain();toneNodes.push(o);o.onended=()=>{toneNodes=toneNodes.filter(x=>x!==o)};o.frequency.value=f;o.type="sine";g.gain.value=.0001;o.connect(g);g.connect(AC.destination);const t=AC.currentTime;g.gain.exponentialRampToValueAtTime(.25,t+.03);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.start(t);o.stop(t+dur+.05)}catch(e){}};
+  const ring=()=>{if(kind==="in"){beep(880,.35);setTimeout(()=>beep(660,.35),400);try{toneOn&&navigator.vibrate&&navigator.vibrate([300,150,300])}catch(e){}}else{beep(440,.9)}};
+  toneOn=1;ring();toneT=setInterval(ring,kind==="in"?2200:3000);
 }
-function stopTone(){clearInterval(toneT);toneT=null}
+function stopTone(){clearInterval(toneT);toneT=null;toneOn=0;try{navigator.vibrate&&navigator.vibrate(0)}catch(e){}try{for(const o of toneNodes){try{o.stop()}catch(e){}try{o.disconnect()}catch(e){}}toneNodes=[]}catch(e){}}
 async function keepAwake(on){try{if(on&&navigator.wakeLock){wl=await navigator.wakeLock.request("screen")}else if(wl){await wl.release();wl=null}}catch(e){}}
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&call&&call.on)keepAwake(true)});
 // mic/headset changed during a call (plug/unplug, bluetooth): grab the new default mic and swap the track

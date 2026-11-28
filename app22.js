@@ -109,16 +109,16 @@ async function dmMic(){
   try{
     const st=await navigator.mediaDevices.getUserMedia({audio:true});
     const mt=["audio/webm;codecs=opus","audio/webm","audio/ogg;codecs=opus","audio/mp4"].find(t=>MediaRecorder.isTypeSupported(t))||"";
-    const rec=new MediaRecorder(st,mt?{mimeType:mt}:{}),chunks=[];
+    const rec=new MediaRecorder(st,mt?{mimeType:mt,audioBitsPerSecond:32000}:{audioBitsPerSecond:32000}),chunks=[];
     rec.ondataavailable=e=>e.data&&e.data.size&&chunks.push(e.data);
     dmRec={rec,st,chunks,t0:Date.now(),cancel:false,mt:rec.mimeType||mt||"audio/webm"};
     rec.onstop=async()=>{
       st.getTracks().forEach(t=>t.stop());const r=dmRec;dmRec=null;dmRecUi();
       if(!r||r.cancel)return;const secs=Math.round((Date.now()-r.t0)/1000);if(secs<1)return msg("التسجيل قصير");
-      const blob=new Blob(r.chunks,{type:r.mt.split(";")[0]});if(blob.size>9.5*1048576)return msg("التسجيل كبير");
+      const blob=new Blob(r.chunks,{type:r.mt.split(";")[0]});if(blob.size>49*1048576)return msg("التسجيل كبير");
       try{const ext=/ogg/.test(r.mt)?"ogg":/mp4/.test(r.mt)?"m4a":"webm";const url=await dmUpload(blob,ext,r.mt.split(";")[0]);await dmInsert({body:"🎤 رسالة صوتية",kind:"voice",media_url:url,media_secs:secs})}catch(e){msg("تعذّر إرسال الصوت")}
     };
-    rec.start();dmRecUi();dmRec.timer=setInterval(()=>{dmRecUi();if(dmRec&&Date.now()-dmRec.t0>180000)dmRecStop(true)},500);
+    rec.start();dmRecUi();dmRec.timer=setInterval(()=>{dmRecUi();if(dmRec&&(Date.now()-dmRec.t0>3600000||dmRec.chunks.reduce((n,c)=>n+c.size,0)>47*1048576))dmRecStop(true)},500);
   }catch(e){msg("اسمح بالميكروفون من المتصفح")}
 }
 function dmRecStop(send){const r=dmRec;if(!r)return;r.cancel=!send;clearInterval(r.timer);try{r.rec.stop()}catch(e){dmRec=null;dmRecUi()}}

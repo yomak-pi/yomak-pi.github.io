@@ -12,7 +12,7 @@ function bar(){
   document.getElementById("pushGo").onclick=async()=>{d.remove();if(typeof ykPushOn==="function")await ykPushOn()};
   document.getElementById("pushNo").onclick=()=>{d.remove();try{localStorage.setItem(KEY,String(Date.now()))}catch(e){}}}
 async function check(){
-  try{if(!ok()||!cs()||document.getElementById("gate")||document.getElementById("callUI"))return;
+  try{if(!ok()||!cs()||document.getElementById("gate")||(document.getElementById("onboard")&&!document.getElementById("onboard").classList.contains("hide"))||document.getElementById("ykw")||document.getElementById("callUI"))return;
     if(Notification.permission==="denied")return;
     if(await has()){if(Notification.permission==="granted"&&typeof ykPushOn==="function"&&!window.__pushSynced){window.__pushSynced=1;ykPushOn().catch(()=>{})}return}
     const t=+localStorage.getItem(KEY)||0;if(Date.now()-t<3*864e5)return;

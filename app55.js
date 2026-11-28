@@ -1,6 +1,6 @@
 /* Version badge + "new version" banner + force update (clears caches, unregisters the service worker, reloads). Bump BUILD and version.json together on each release. */
 (function(){
-const BUILD="82";window.YOMAK_BUILD=BUILD;
+const BUILD="83";window.YOMAK_BUILD=BUILD;
 const css=document.createElement("style");
 css.textContent='#vbadge{z-index:99999!important;position:fixed;left:6px;bottom:calc(env(safe-area-inset-bottom) + 66px);z-index:9990;background:#0009;color:#fff;font-size:11px;padding:3px 8px;border-radius:12px;direction:ltr;opacity:.65}#vban{position:fixed;left:8px;right:8px;top:max(8px,env(safe-area-inset-top));z-index:99999;background:#155b50;color:#fff;border-radius:14px;padding:12px;display:flex;gap:10px;align-items:center;justify-content:space-between;box-shadow:0 6px 24px #0006}#vban button{border:0;border-radius:10px;background:#f2a54a;color:#222;font-weight:800;padding:9px 14px}';
 document.head.appendChild(css);

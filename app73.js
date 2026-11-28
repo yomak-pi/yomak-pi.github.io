@@ -6,8 +6,10 @@ const IC={"أكل":"🍔","مواصلات":"🚗","تسوق":"🛒","فواتي�
 const CL={"أكل":"#f4a93b","مواصلات":"#4e8cf0","تسوق":"#e8556d","فواتير":"#8e6cf0","صحة":"#12a88a","ترفيه":"#f06fb0","تعليم":"#2ab7ca","منزل":"#9a7b4f","أخرى":"#8a9a95"};
 const ic=c=>IC[c]||"💸",cc=c=>CL[c]||"#8a9a95";
 const MN=["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
-let fin=(()=>{try{const x=JSON.parse(localStorage.getItem("yk_fin")||"{}");return {inc:Array.isArray(x.inc)?x.inc:[],cb:x.cb&&typeof x.cb==="object"?x.cb:{},rec:Array.isArray(x.rec)?x.rec:[]}}catch(e){return {inc:[],cb:{},rec:[]}}})();
+let fin=(()=>{try{const x=JSON.parse(localStorage.getItem("yk_fin")||"{}");return {inc:Array.isArray(x.inc)?x.inc:[],cb:x.cb&&typeof x.cb==="object"?x.cb:{},rec:Array.isArray(x.rec)?x.rec:[],del:Array.isArray(x.del)?x.del.slice(-500):[],eu:x.eu&&typeof x.eu==="object"?x.eu:{},ts:Number(x.ts)||0}}catch(e){return {inc:[],cb:{},rec:[],del:[],eu:{},ts:0}}})();
 function sv(){try{localStorage.setItem("yk_fin",JSON.stringify(fin));return true}catch(e){msg("تعذر الحفظ على الجهاز");return false}}
+const touch=()=>{fin.ts=Date.now();const ok=sv();try{window.ykFinChanged&&window.ykFinChanged()}catch(e){}return ok};
+window.ykFin={get:()=>fin,set:f=>{fin=f},save:sv,touch};
 const S={m:todayKey().slice(0,7),q:"",type:"all",cat:"all",type_in:false,sel:"",amt:""};
 const num=x=>{x=Number(String(x).replace(/[٠-٩]/g,c=>c.charCodeAt(0)-1632).replace(/[,،]/g,"."));return x};
 const ex=()=>d.expenses.filter(e=>e.currency===cur()),inc=()=>fin.inc.filter(e=>e.currency===cur());
@@ -23,7 +25,7 @@ function applyRec(){const t=todayKey(),m=t.slice(0,7),day=Number(t.slice(8));let
     if(r.type==="in"){fin.inc.push({id:uid(),amount:r.amount,title:r.title,date,currency:r.currency,rec:r.id})}
     else tx(()=>{d.expenses.push({id:newId(),amount:r.amount,title:r.title,cat:r.cat,date,currency:r.currency})});
     r.last=m;ch=1});
-  if(ch)sv()}
+  if(ch)touch()}
 function donut(rows,total){if(!total)return "";let off=0;const R=52,C=2*Math.PI*R;
   return '<svg viewBox="0 0 140 140" width="132" height="132" aria-hidden="true"><circle cx="70" cy="70" r="'+R+'" fill="none" stroke="#eef3f1" stroke-width="22"/>'+rows.map(r=>{const l=r[1]/total*C,s='<circle cx="70" cy="70" r="'+R+'" fill="none" stroke="'+cc(r[0])+'" stroke-width="22" stroke-dasharray="'+l+" "+(C-l)+'" stroke-dashoffset="'+(-off)+'" transform="rotate(-90 70 70)"/>';off+=l;return s}).join("")+'<text x="70" y="66" text-anchor="middle" font-size="11" fill="#5b6b66">المصروف</text><text x="70" y="84" text-anchor="middle" font-size="14" font-weight="800" fill="#10302d">'+Math.round(total).toLocaleString("ar-EG")+'</text></svg>'}
 function dailyBars(m,list){const [y,mo]=m.split("-").map(Number),n=new Date(y,mo,0).getDate(),a=Array(n).fill(0);list.forEach(e=>{const k=Number(String(e.date).slice(8,10));if(k>=1&&k<=n)a[k-1]+=Number(e.amount)});const mx=Math.max(...a,1);
@@ -73,27 +75,27 @@ window.fnQ=v=>{S.q=v;const l=document.getElementById("fnList");if(l)l.innerHTML=
 window.fnT=v=>{S.type=v;R()};window.fnC=v=>{S.cat=v;R()};
 window.fnQuick=cat=>{const a=num(S.amt||(document.getElementById("fnAmt")||{}).value);if(!Number.isFinite(a)||a<=0)return msg("اكتب المبلغ الأول");if(a>1e9)return msg("المبلغ كبير جدًا");
   const t=((document.getElementById("fnTitle")||{}).value||"").trim().slice(0,60),date=todayKey();
-  if(S.type_in){fin.inc.push({id:uid(),amount:a,title:t||"دخل",date,currency:cur()});if(!sv())return}
+  if(S.type_in){fin.inc.push({id:uid(),amount:a,title:t||"دخل",date,currency:cur()})}
   else if(!tx(()=>{d.expenses.push({id:newId(),amount:a,title:t||cat,cat,date,currency:cur()})}))return;
-  S.amt="";S.m=date.slice(0,7);R();msg(S.type_in?"تم تسجيل الدخل ✅":"تم تسجيل المصروف ✅")};
+  touch();S.amt="";S.m=date.slice(0,7);R();msg(S.type_in?"تم تسجيل الدخل ✅":"تم تسجيل المصروف ✅")};
 /* edit / delete */
 window.fnEdit=(k,id)=>{const e=(k==="in"?fin.inc:d.expenses).find(x=>x.id===id);if(!e)return;
   openModal('<button class="close" aria-label="إغلاق" onclick="closeModal()">×</button><h3>'+(k==="in"?"تعديل الدخل":"تعديل المصروف")+'</h3><input id="feT" class="input" maxlength="60" value="'+esc(e.title)+'" aria-label="الوصف"><input id="feA" class="input" type="text" inputmode="decimal" value="'+e.amount+'" aria-label="المبلغ"><input id="feD" class="input" type="date" value="'+esc(e.date)+'" aria-label="التاريخ">'+(k==="out"?'<select id="feC" class="input">'+FC.concat(FC.includes(e.cat)?[]:[e.cat]).map(c=>'<option'+(c===e.cat?" selected":"")+'>'+esc(c)+'</option>').join("")+'</select>':'')+'<button class="primary" onclick="fnSave(\''+k+'\','+id+')">حفظ</button><button class="secondary" style="margin-top:8px;color:#c0392b" onclick="fnDel(\''+k+'\','+id+')">🗑️ حذف</button>')};
 window.fnSave=(k,id)=>{const a=num(el("feA").value),t=el("feT").value.trim().slice(0,60),dt=el("feD").value;if(!Number.isFinite(a)||a<=0||a>1e9)return msg("اكتب مبلغ صحيح");if(!/^\d{4}-\d{2}-\d{2}$/.test(dt))return msg("اختار التاريخ");
-  if(k==="in"){const e=fin.inc.find(x=>x.id===id);if(!e)return;e.amount=a;e.title=t||"دخل";e.date=dt;if(!sv())return}
+  if(k==="in"){const e=fin.inc.find(x=>x.id===id);if(!e)return;e.amount=a;e.title=t||"دخل";e.date=dt}
   else{const c=el("feC").value;if(!tx(()=>{const e=d.expenses.find(x=>x.id===id);if(!e)throw 0;e.amount=a;e.title=t||c;e.date=dt;e.cat=c}))return}
-  closeModal();R();msg("تم الحفظ")};
-window.fnDel=(k,id)=>{if(!confirm("حذف الحركة دي؟"))return;if(k==="in"){fin.inc=fin.inc.filter(x=>x.id!==id);sv()}else tx(()=>{d.expenses=d.expenses.filter(x=>x.id!==id)});closeModal();R();msg("تم الحذف")};
+  fin.eu[id]=Date.now();touch();closeModal();R();msg("تم الحفظ")};
+window.fnDel=(k,id)=>{if(!confirm("حذف الحركة دي؟"))return;if(k==="in"){fin.inc=fin.inc.filter(x=>x.id!==id)}else tx(()=>{d.expenses=d.expenses.filter(x=>x.id!==id)});fin.del.push(k+id);touch();closeModal();R();msg("تم الحذف")};
 /* category budget */
 window.fnCatBudget=c=>{openModal('<button class="close" aria-label="إغلاق" onclick="closeModal()">×</button><h3>ميزانية '+ic(c)+" "+esc(c)+'</h3><input id="fcb" class="input" type="text" inputmode="decimal" placeholder="المبلغ الشهري" value="'+(fin.cb[c]||"")+'"><button class="primary" onclick="fnCbSave(\''+c+'\')">حفظ</button>'+(fin.cb[c]?'<button class="secondary" style="margin-top:8px" onclick="fnCbSave(\''+c+'\',1)">إلغاء الميزانية</button>':''))};
-window.fnCbSave=(c,del)=>{const a=num(el("fcb").value||0);if(del||!a)delete fin.cb[c];else if(!Number.isFinite(a)||a<0||a>1e9)return msg("اكتب مبلغ صحيح");else fin.cb[c]=a;if(!sv())return;closeModal();R()};
+window.fnCbSave=(c,del)=>{const a=num(el("fcb").value||0);if(del||!a)delete fin.cb[c];else if(!Number.isFinite(a)||a<0||a>1e9)return msg("اكتب مبلغ صحيح");else fin.cb[c]=a;if(!touch())return;closeModal();R()};
 /* recurring */
 window.fnRecEdit=id=>{const r=fin.rec.find(x=>x.id===id)||{type:"out",cat:"فواتير",day:1,title:"",amount:""};
   openModal('<button class="close" aria-label="إغلاق" onclick="closeModal()">×</button><h3>'+(id?"تعديل المتكرر":"متكرر جديد")+'</h3><div class="fn-seg"><button id="frO" class="'+(r.type!=="in"?"on":"")+'" onclick="this.className=\'on\';frI.className=\'\'">مصروف</button><button id="frI" class="'+(r.type==="in"?"on":"")+'" onclick="this.className=\'on\';frO.className=\'\'">دخل</button></div><input id="frT" class="input" maxlength="60" placeholder="الاسم (إيجار، اشتراك، راتب…)" value="'+esc(r.title)+'"><input id="frA" class="input" type="text" inputmode="decimal" placeholder="المبلغ" value="'+r.amount+'"><select id="frC" class="input">'+FC.map(c=>'<option'+(c===r.cat?" selected":"")+'>'+c+'</option>').join("")+'</select><input id="frD" class="input" type="number" min="1" max="28" placeholder="يوم الشهر (١-٢٨)" value="'+r.day+'"><button class="primary" onclick="fnRecSave('+id+')">حفظ</button>'+(id?'<button class="secondary" style="margin-top:8px;color:#c0392b" onclick="fnRecDel('+id+')">🗑️ حذف</button>':''))};
 window.fnRecSave=id=>{const a=num(el("frA").value),day=Math.round(Number(el("frD").value)),t=el("frT").value.trim().slice(0,60);if(!t)return msg("اكتب الاسم");if(!Number.isFinite(a)||a<=0||a>1e9)return msg("اكتب مبلغ صحيح");if(!(day>=1&&day<=28))return msg("اليوم من ١ لـ ٢٨");
   const o={title:t,amount:a,cat:el("frC").value,day,type:el("frI").className==="on"?"in":"out",currency:cur()};
-  if(id){const r=fin.rec.find(x=>x.id===id);if(r)Object.assign(r,o)}else fin.rec.push({id:uid(),...o,last:""});if(!sv())return;closeModal();R()};
-window.fnRecDel=id=>{if(!confirm("حذف المتكرر ده؟ اللي اتسجل قبل كده هيفضل."))return;fin.rec=fin.rec.filter(x=>x.id!==id);sv();closeModal();R()};
+  if(id){const r=fin.rec.find(x=>x.id===id);if(r)Object.assign(r,o)}else fin.rec.push({id:uid(),...o,last:""});if(!touch())return;closeModal();R()};
+window.fnRecDel=id=>{if(!confirm("حذف المتكرر ده؟ اللي اتسجل قبل كده هيفضل."))return;fin.rec=fin.rec.filter(x=>x.id!==id);fin.del.push("rec"+id);touch();closeModal();R()};
 /* export */
 window.fnCsv=()=>{const rows=[["التاريخ","النوع","الفئة","الوصف","المبلغ","العملة"]];
   ex().concat([]).forEach(e=>rows.push([e.date,"مصروف",e.cat,e.title,e.amount,e.currency]));inc().forEach(e=>rows.push([e.date,"دخل","",e.title,e.amount,e.currency]));

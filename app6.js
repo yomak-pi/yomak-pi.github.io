@@ -17,7 +17,7 @@ async function send(kind,payload){
   await sb("/rest/v1/call_signals",{method:"POST",body:{call_id:call.id,to_uid:call.peer,kind,payload:payload||null}});
 }
 function cleanup(notify){
-  stopTone();keepAwake(false);
+  try{clearInterval(call&&call.rt)}catch(e){}stopTone();keepAwake(false);
   if(call&&call.dir==="out"&&call.sent&&!call.logged){call.logged=1;
     if(call.on&&call.t0)logCall("📞 مكالمة صوتية · مدتها "+mmss(Math.max(0,Math.round((Date.now()-call.t0)/1000))));
     else logCall(call.res==="declined"?"📵 مكالمة مرفوضة":"📵 مكالمة فائتة")}
@@ -77,7 +77,7 @@ async function loadTurn(){
 }
 async function mkPc(){await loadTurn();
   const pc=new RTCPeerConnection({iceServers:ICE,iceCandidatePoolSize:4,bundlePolicy:"max-bundle",rtcpMuxPolicy:"require"});
-  call.pc=pc;window.__pc=pc;call.pendingIce=[];
+  call.pc=pc;window.__pc=pc;call.pendingIce=call.pendingIce||[];
   pc.onicecandidate=e=>{if(e.candidate&&call)send("ice",e.candidate.toJSON()).catch(()=>{})};
   pc.ontrack=e=>{if(e.track&&e.track.kind==="video"){showRemoteVid(e.streams[0]||new MediaStream([e.track]),e.track);return}let a=document.getElementById("callAudio");if(!a){a=document.createElement("audio");a.id="callAudio";a.autoplay=true;a.setAttribute("playsinline","");document.body.append(a)}a.srcObject=e.streams[0];a.play&&a.play().catch(()=>{})};
   pc.onconnectionstatechange=()=>{
@@ -101,7 +101,14 @@ function tone(kind){
   const ring=()=>{if(kind==="in"){beep(880,.35);setTimeout(()=>beep(660,.35),400);try{toneOn&&navigator.vibrate&&navigator.vibrate([300,150,300])}catch(e){}}else{beep(440,.9)}};
   toneOn=1;ring();toneT=setInterval(ring,kind==="in"?2200:3000);
 }
-function stopTone(){clearInterval(toneT);toneT=null;toneOn=0;try{navigator.vibrate&&navigator.vibrate(0)}catch(e){}try{for(const o of toneNodes){try{o.stop()}catch(e){}try{o.disconnect()}catch(e){}}toneNodes=[]}catch(e){}}
+function unlockAudio(){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();if(AC.state!=="running")AC.resume&&AC.resume();const b=AC.createBuffer(1,1,22050),o=AC.createBufferSource();o.buffer=b;o.connect(AC.destination);o.start(0)}catch(e){}}
+["pointerdown","touchstart","keydown","click"].forEach(ev=>window.addEventListener(ev,unlockAudio,{passive:true}));
+function ringHelp(){
+  try{if(AC&&AC.state!=="running"){AC.resume&&AC.resume().catch(()=>{})}}catch(e){}
+  try{if("Notification"in window&&Notification.permission==="granted"&&navigator.serviceWorker){navigator.serviceWorker.ready.then(r=>r.showNotification("📞 مكالمة واردة",{body:nameOf(call&&call.peer)||"",tag:"call",renotify:true,requireInteraction:true,vibrate:[400,200,400,200,400],icon:"icons/icon-192.png"}).catch(()=>{}))}}catch(e){}
+  const ui0=document.getElementById("callUI");if(ui0&&AC&&AC.state!=="running"){ui0.addEventListener("pointerdown",()=>{unlockAudio();if(call&&call.dir==="in"&&!call.pc)tone("in")},{once:true})}
+}
+function stopTone(){try{navigator.serviceWorker&&navigator.serviceWorker.ready.then(r=>r.getNotifications({tag:"call"}).then(l=>l.forEach(n=>n.close())))}catch(e){}clearInterval(toneT);toneT=null;toneOn=0;try{navigator.vibrate&&navigator.vibrate(0)}catch(e){}try{for(const o of toneNodes){try{o.stop()}catch(e){}try{o.disconnect()}catch(e){}}toneNodes=[]}catch(e){}}
 async function keepAwake(on){try{if(on&&navigator.wakeLock){wl=await navigator.wakeLock.request("screen")}else if(wl){await wl.release();wl=null}}catch(e){}}
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&call&&call.on)keepAwake(true)});
 // mic/headset changed during a call (plug/unplug, bluetooth): grab the new default mic and swap the track
@@ -170,16 +177,18 @@ window.callStart=async function(peerUid){
     const pc=await mkPc(),off=await pc.createOffer({offerToReceiveAudio:true});
     await pc.setLocalDescription(off);
     await send("offer",{type:off.type,sdp:tune(off.sdp)});call.sent=1;dbg("offer sent");
+    const myId=call.id;let tries=0;call.rt=setInterval(()=>{if(!call||call.id!==myId||call.ringing||call.on||call.pc.signalingState!=="have-local-offer"||++tries>3){clearInterval(call&&call.rt);return}dbg("offer retry "+tries);send("offer",{type:off.type,sdp:tune(off.sdp),retry:true}).catch(()=>{})},6000);
     call.t=setTimeout(()=>{msg("لم يرد");cleanup(true)},45000);
     startPoll();
   }catch(e){const m=e&&e.name==="NotAllowedError"?"اسمح للميكروفون من إعدادات المتصفح":sbErr(e)||"تعذر بدء المكالمة";cleanup(false);msg(m.slice(0,90))}
 };
 async function incoming(s){
   dbg("incoming "+s.id);
+  if(call&&call.id===s.call_id){if(call.dir==="in"&&!call.pc)send("ringing").catch(()=>{});return}
   if(call&&(!document.getElementById("callUI")||(!call.on&&!call.pc&&Date.now()-(call.born||0)>50000))){cleanup(false)}
   if(call){await sb("/rest/v1/call_signals",{method:"POST",body:{call_id:s.call_id,to_uid:s.from_uid,kind:"busy"}}).catch(()=>{});return}
-  call={id:s.call_id,peer:s.from_uid,dir:"in",offer:s.payload,born:Date.now()};try{navigator.vibrate&&navigator.vibrate([400,200,400])}catch(e){}
-  tone("in");
+  call={id:s.call_id,peer:s.from_uid,dir:"in",offer:s.payload,born:Date.now(),pendingIce:[]};try{navigator.vibrate&&navigator.vibrate([400,200,400])}catch(e){}
+  send("ringing").catch(()=>{});tone("in");ringHelp();
   ui(`<div style="font-size:42px">📞</div><h2>${esc(nameOf(s.from_uid))}</h2><p>مكالمة واردة…</p><div style="display:flex;gap:12px">${btn("✅ رد","callAccept()","#1b7a63")}${btn("⛔ رفض","callDecline()","#b0352d")}</div>`);
   call.t=setTimeout(()=>cleanup(false),45000);
   startPoll();
@@ -208,6 +217,7 @@ async function onSignal(s){
   if(!call||call.id!==s.call_id)return;
   if(s.kind==="answer"&&call.pc){await call.pc.setRemoteDescription(s.payload).catch(()=>{});for(const c of call.pendingIce)await call.pc.addIceCandidate(c).catch(()=>{});call.pendingIce=[]}
   else if(s.kind==="ice"){if(call.pc&&call.pc.remoteDescription)await call.pc.addIceCandidate(s.payload).catch(()=>{});else call.pendingIce&&call.pendingIce.push(s.payload)}
+  else if(s.kind==="ringing"){call.ringing=1;const p=document.querySelector("#callUI p");if(p&&!call.on&&call.dir==="out")p.textContent="بيرن…"}
   else if(s.kind==="hangup"){msg("انتهت المكالمة");cleanup(false)}
   else if(s.kind==="decline"){call.res="declined";msg("تم رفض المكالمة");cleanup(false)}
   else if(s.kind==="busy"){call.res="busy";msg("الطرف الآخر في مكالمة");cleanup(false)}

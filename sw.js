@@ -1,6 +1,6 @@
-const V='yomak-v20',FILES=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png','./icons/maskable-512.png'];
+const V='yomak-v22',FILES=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png','./icons/maskable-512.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(FILES)).then(()=>self.skipWaiting()))});
-self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==V).map(x=>caches.delete(x)))).then(()=>self.clients.claim()))});
+self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(k=>{const old=k.some(x=>x!==V);return Promise.all(k.filter(x=>x!==V).map(x=>caches.delete(x))).then(()=>self.clients.claim()).then(()=>old?self.clients.matchAll({type:'window'}):[]).then(l=>l.forEach(c=>{try{c.navigate(c.url)}catch(x){}}))}))});
 // الشبكة أولًا (علشان التحديثات تظهر فورًا)، وعند عدم وجود نت يُقدَّم المحفوظ
 // الصفحة الرئيسية: الشبكة أولًا. ملفات التطبيق (js/صور): من الذاكرة فورًا ثم تحديث في الخلفية، ولو الملف اتغير الصفحة تتحدّث مرة واحدة.
 self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.method!=='GET'||u.origin!==location.origin)return;
@@ -13,4 +13,4 @@ self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.me
     return Promise.race([net.catch(()=>null),to]).then(n=>n||ch.match(e.request,{ignoreSearch:true}).then(o=>o||net))}))});
 self.addEventListener('notificationclick',e=>{e.notification.close();e.waitUntil(clients.matchAll({type:'window'}).then(l=>l.length?l[0].focus():clients.openWindow('./index.html')))});
 self.addEventListener('push',e=>{let d={};try{d=e.data?e.data.json():{}}catch(x){}
-  e.waitUntil(self.registration.showNotification(d.title||'يومك',{body:d.body||'',icon:'icons/icon-192.png',tag:d.tag||'yomak',dir:'rtl',lang:'ar',data:{url:d.url||'./index.html'}}))});
+  e.waitUntil(self.registration.showNotification(d.title||'يومك',{body:d.body||'',icon:'icons/icon-192.png',tag:d.tag||'yomak',renotify:true,requireInteraction:d.tag==='call',vibrate:d.tag==='call'?[400,200,400,200,400,200,400]:[100],dir:'rtl',lang:'ar',data:{url:d.url||'./index.html'}}))});
